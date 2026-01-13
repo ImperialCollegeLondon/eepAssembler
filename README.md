@@ -13,13 +13,14 @@ The F# source is in `./src/Program.fs`
 Before you start:
 
 * Download and unzip the latest release source code or fork and clone this repo.
-* Install [.NET 64 bit SDK 8](https://dotnet.microsoft.com/en-us/download). 
+* Install [.NET 64 bit SDK 8](https://dotnet.microsoft.com/en-us/download/dotnet/8.0) from link that fits your laptop and operating system.
 
-To run the assembler on any system (see nicer option via Windows Powershell below):
+To run the assembler on any system (Windows users see **simpler and nicer option for Windows** below):
 
 * start a command line terminal running in this directory (the one containing the downloaded README file).
-* `dotnet run dir`
-   * replace `dir` by the directory you want to watch
+* `dotnet run <dir>`
+   * replace `<dir>` by the directory you want to watch
+   * To test the the assembler just `dotnet run` and it will watch the assembler
 * `dotnet run` will watch `.`
     * The downloaded `.` directory has a file `assem.txt` which will be correctly assembled into `assem.ram` with a success message as below.
     
@@ -31,9 +32,11 @@ Successful assembly of '.\assem.txt'
 ```
 
 
-### On Windows systems only via Powershell
+### On Windows systems only
 
-Double-click `chooser.bat` from this directory to use file selection GUI - the whole directory of file selected will be watched.
+* Double-click `chooser.bat` from this directory to use file selection GUI
+* Select a file to assemble (e.g. `assem.txt`)
+* The whole directory of file selected will be watched.
 
 ## Features
 
