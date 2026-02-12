@@ -43,7 +43,7 @@ Successful assembly of '.\assem.txt'
 * The assembler will watch a directory and turn any `.txt` file of EEP1 assembly language into a `.ram` file of machine code suitable for use by Issie.
 * If assembly errors exist they will be printed out
 * Files that change will get re-assembled, so you can edit a file and save it with auto-assembly on save.
-* Lines can be labelled (see `assembler.txt`) and labels used in jump or memory instructions as Imm8 operands.
+* Lines can be labelled (see `assem.txt`) and labels used in jump or memory instructions as Imm8 operands.
 
 ## Troubleshooting your installation
 
@@ -51,7 +51,7 @@ Uptodate as of Feb 2023.
 
 If this program does not run it will likely be because you have the wrong version of .Net installed. You need 64 bit .Net 8 SDK. Check you have this as follows:
 
-* Run a commande prompt (Windows key-r -> cmd, or equiv on other systems)
+* Run a command prompt (Windows key-r -> cmd, or equiv on other systems)
 * `dotnet --info`
 
 You should get something like:
@@ -79,7 +79,7 @@ What can go wrong:
 
 ### For more insight
 
-* Run a command prompt in the eepassembler directory (then one containing chooser.bat).
+* Run a command prompt in the eepassembler directory (the one containing chooser.bat).
 * Run `dotnet run`.
 * Check the messages there, e.g. which version, is there an error.
 
