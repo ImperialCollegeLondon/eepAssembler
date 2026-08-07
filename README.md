@@ -77,10 +77,15 @@ files that will be watched. Move around with the numbers, `..`, or by typing a p
 until the directory holding your assembly files is shown, then press ENTER:
 
 ```
-Watching 'C:\GitHub\eepAssembler' for .s or .txt files
-Successful assembly of 'C:\GitHub\eepAssembler\assem.txt'
-9 lines written to 'C:\GitHub\eepAssembler\assem.ram'
+Watching C:\GitHub\eepAssembler
+Every .s or .txt file in it is assembled now, and again whenever it is saved.
+
+assem.txt -> assem.ram: 9 lines
 ```
+
+The directory is named in full once, here. Everything reported after that is a file
+inside it, so only file names are used, and each file's report is followed by a blank
+line so one re-assembly is easy to tell from the next.
 
 The assembler now stays running. **Edit an assembly file and save it, and it is
 re-assembled immediately** - leave this window open beside your editor. Press Ctrl-C
@@ -157,14 +162,24 @@ are *not* copied across.
 
 ### Errors and warnings
 
-Assembly errors are printed with their line number and nothing is written:
+Errors and warnings are printed in the terminal, with the line number they came from.
+They are never written into your assembly file, which the assembler only ever reads.
+
+An error stops assembly, and no `.ram` file is written - the one from the last good
+assembly, if there is one, is left as it was:
 
 ```
-Assembly errors in file 'prog.s':
-Line no 4: Immediate operand 300 is outside the allowed 8 bit range -128 .. 255. Use an EXT instruction before this one to supply the high byte of a larger operand
+prog.s: 2 errors, prog.ram not written
+  line 4: immediate 300 is outside -128 .. 255 - use EXT for the high byte
+  line 9: duplicate label 'loop'
 ```
 
-Warnings do not stop assembly - the `.ram` file is written and the warnings follow it.
+Warnings do not stop assembly. The `.ram` file is written and the warnings follow it:
+
+```
+prog.s -> prog.ram: 12 lines, 1 warning
+  line 7: immediate 200 sets the top bit, so the CPU reads it as -56
+```
 
 ## Troubleshooting
 

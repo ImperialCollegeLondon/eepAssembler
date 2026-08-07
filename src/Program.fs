@@ -323,10 +323,11 @@ let inImm8Range n = n >= -128 && n <= 255
 /// This is legal, but is worth warning about in case it was not what was meant.
 /// An EXT instruction supplies the high byte itself, so no sign extension happens
 /// and there is then nothing to warn about.
+/// The message is kept short enough to fit, with its 'line n:' prefix, on one line
+/// of an 80 column terminal.
 let signedImm8Warning (extMod: uint32 option) (subject: string) n =
     if extMod = None && n >= 128 && n <= 255 then
-        [ $"{subject} is in the range 128 .. 255, so it sets the top bit of the 8 bit \
-            operand and will be interpreted as the two's complement signed value {n - 256}" ]
+        [ $"{subject} sets the top bit, so the CPU reads it as {n - 256}" ]
     else
         []
 
@@ -336,10 +337,10 @@ let signedImm8Warning (extMod: uint32 option) (subject: string) n =
 let operandWarnings (extMod: uint32 option) isJmp (symTab: SymTable) (op: Op) =
     match op with
     | Imm8 n ->
-        signedImm8Warning extMod $"immediate operand {n}" n
+        signedImm8Warning extMod $"immediate {n}" n
     | SymImm8 s when not isJmp ->
         match symTab.Lookup s with
-        | Ok n -> signedImm8Warning extMod $"symbol '{s}' with value {n}" n
+        | Ok n -> signedImm8Warning extMod $"symbol '{s}' = {n}" n
         | Error _ -> []
     | _ ->
         []
@@ -361,17 +362,14 @@ let makeOp isJmp (pc:int) (a: int) (op:Op) =
         |  Imm8 n when inImm8Range n ->
             Ok <| ra + IWord.Imm8Field n + IWord.Imm8Bit (not isJmp)
         |  Imm8 n ->
-            Error $"Immediate operand {n} is outside the allowed 8 bit range -128 .. 255. \
-                    Use an EXT instruction before this one to supply the high byte of a larger operand"
+            Error $"immediate {n} is outside -128 .. 255 - use EXT for the high byte"
         |  SymImm8 s when not isJmp->
             symTab.Lookup s
             |> Result.bind (fun n ->
                 if inImm8Range n then
                     Ok (ra + IWord.Imm8Field n + IWord.Imm8Bit (not isJmp))
                 else
-                    Error $"Symbol '{s}' has value 0x%0x{n}, which is outside the allowed 8 bit \
-                            range -128 .. 255. Use an EXT instruction with a literal operand to reach \
-                            addresses above 0xFF")
+                    Error $"symbol '{s}' = 0x%x{n} is above 255 - use EXT for the high byte")
         | SymImm8 s when symTab.Phase = Phase1 -> // if isJump
             Ok (ra) // can't error in Phase1 to allow forward references
         |  SymImm8 s -> // if isJmp
@@ -379,10 +377,10 @@ let makeOp isJmp (pc:int) (a: int) (op:Op) =
             |> Result.bind (fun n ->
                 let offset = n - pc
                 if offset < -128 || offset > 127
-                then Error $"Operand for jump is outside allowed range -128 - +127: target=%0x{n}, pc=%0x{pc}"
+                then Error $"jump to 0x%x{n} from 0x%x{pc} is outside the range -128 .. +127"
                 else Ok (ra + IWord.Imm8Field offset))
         |  RegOp (r) when isJmp ->
-            Error $"Jump instruction is not allowed register operand '{r}'"
+            Error $"a jump cannot take the register operand '{r}'"
         |  RegOp(Regist r) ->
             Ok <| ra + IWord.RbField r
         | RegOp r ->
@@ -552,7 +550,8 @@ let rec parseUnlabelled (line: Line) (tokL: Token list) : Line =
     let tokString = toksToString tokL
     match error, tokL with
     | Some s, rest -> 
-        lineError $"Line {line.LineNo}: Token error: '{s}'", rest
+        // the line number is added when the error is reported, so it is not repeated here
+        lineError $"token error: '{s}'", rest
     | _, [] ->
         // no code is generated, so any EXT modifier still applies to the next instruction
         {nl with Word = None; ExtMod = line.ExtMod}, []
@@ -607,10 +606,10 @@ let rec parseUnlabelled (line: Line) (tokL: Token list) : Line =
             {nl with Word = Some (Error $"ORG address {n} is not in the allowed 16 bit range 0 .. 65535")}, [Comment s]
         
     | _ when line.Label.IsSome ->
-        lineError $"Error in '{tokString}' after symbol '{line.Label.Value}', \
-                    perhaps this is a mis-spelled opcode mnemonic?",[]
-    | _  -> 
-        lineError $"Unexpected parse error: '{tokString}'"   , []
+        lineError $"cannot parse '{tokString}' after label '{line.Label.Value}' \
+                    - a mis-spelled opcode?",[]
+    | _  ->
+        lineError $"cannot parse '{tokString}'"   , []
     |> (fun (line, rest) -> 
         match line, rest with
         | {Word = Some (Error msg)}, _ -> 
@@ -640,7 +639,7 @@ let parse (line: Line) (tokL: Token list) : Line =
              | Phase2 -> Ok line.Table
          match table with
          |  Error _ -> 
-             lineError  $"Duplicate label: '{s}'"
+             lineError  $"duplicate label '{s}'"
          | Ok table' ->
              parseUnlabelled {line with Table = table'; Label = Some s} tokL'
     | _ ->
@@ -677,7 +676,7 @@ let doLoop() =
 /// the list of errors. Errors from Phase1 stop Phase2 running.
 let parseLines (txtL: string list) =
     let errorLine (line:Line) (msg:string) =
-        $"Line no {line.LineNo - 1}: %s{msg}"
+        $"line {line.LineNo - 1}: %s{msg}"
 
     let getErrors (lines: Line list) =
         lines
@@ -741,8 +740,21 @@ let sourceExtensionsText =
 let isSourceFile (path:string) =
     List.contains ((IO.Path.GetExtension path).ToUpper()) sourceExtensions
 
+/// '1 error' but '2 errors': counts read badly without this.
+let plural n (thing:string) =
+    let s = if n = 1 then "" else "s"
+    $"{n} {thing}{s}"
+
 /// Assemble one file, writing 'path.ram' beside it, and report what happened.
-/// Anything that is not an assembly source file is ignored with a message.
+///
+/// Messages here name files and not paths: the directory being watched is printed
+/// once at startup, and every file reported afterwards is in it. Each file's report
+/// is one block of lines followed by a blank line, so that one run is easy to tell
+/// apart from the next in a terminal that has been running all afternoon.
+///
+/// Errors are reported here on the console and nowhere else. Neither the source file
+/// nor the '.ram' file is written to when a file fails to assemble - a student's own
+/// assembly file is never edited by this program.
 let assembler (path:string) =
     let formatAssembly (lines: Line list) =
         lines
@@ -755,8 +767,13 @@ let assembler (path:string) =
             | text -> $"{code}// {text}")
 
 
-    let ext = IO.Path.GetExtension path
-    let dir = IO.Path.GetDirectoryName path
+    let name = IO.Path.GetFileName path
+    let pathOut = IO.Path.ChangeExtension(path, "ram")
+    let nameOut = IO.Path.GetFileName pathOut
+    /// Print one run's report, then a blank line to separate it from the next run.
+    let report (lines: string list) =
+        lines |> List.iter (printfn "%s")
+        printfn ""
     match isSourceFile path with
     | true ->
         // File IO happens on a FileSystemWatcher callback thread: an editor that still
@@ -766,26 +783,29 @@ let assembler (path:string) =
             |> Array.toList
             |> parseLines
             |> function | Error lst ->
-                            printfn $"Assembly errors in file '{path}':"
-                            printfn "%s" (String.concat "\n" lst)
-                            ()
+                            // nothing is written: the '.ram' file, if there is one from
+                            // an earlier run, is left alone and so is the source file
+                            let errors = plural (List.length lst) "error"
+                            report
+                                ($"{name}: {errors}, {nameOut} not written"
+                                 :: (lst |> List.map (fun e -> $"  {e}")))
                         | Ok (lst, warnings) ->
-                            let pathOut =
-                                IO.Path.ChangeExtension(path, "ram")
                             let output =
                                 formatAssembly lst
                                 |> List.toArray
                             IO.File.WriteAllLines(pathOut, output)
-                            printfn $"Successful assembly of '{path}'"
-                            printfn $"{output.Length} lines written to '{pathOut}'"
-                            if not (List.isEmpty warnings) then
-                                printfn $"Warnings in file '{path}' (the machine code was still written):"
-                                printfn "%s" (String.concat "\n" warnings)
+                            let alsoWarned =
+                                match warnings with
+                                | [] -> ""
+                                | ws -> ", " + plural (List.length ws) "warning"
+                            let written = plural output.Length "line"
+                            report
+                                ($"{name} -> {nameOut}: {written}{alsoWarned}"
+                                 :: (warnings |> List.map (fun w -> $"  {w}")))
         with e ->
-            printfn $"Could not assemble '{path}': {e.Message}"
+            report [$"{name}: not assembled - {e.Message}"]
     | false ->
-        printfn $"EEP1asm is watching {dir}, noted a file extension {ext} \
-                    only files with extension {sourceExtensionsText} will be assembled"
+        report [$"{name}: ignored - only {sourceExtensionsText} files are assembled"]
 
 
 
@@ -1068,7 +1088,12 @@ let watch (path:string) =
         printfn $"Sorry - I cannot watch '{path}': there is no such file or directory"
         waitForKey()
     | Some dir ->
-        printfn $"Watching '{dir}' for {sourceExtensionsText} files"
+        // the directory is named in full once, here: after this every message is about
+        // a file in it, and names that file only
+        printfn ""
+        printfn $"Watching {dir}"
+        printfn $"Every {sourceExtensionsText} file in it is assembled now, and again whenever it is saved."
+        printfn ""
         let processFile (args: IO.FileSystemEventArgs) =
             if isSourceFile args.FullPath then
                 System.Threading.Thread.Sleep 50
@@ -1080,7 +1105,9 @@ let watch (path:string) =
         |> List.filter (fun (_, files) -> List.length files > 1)
         |> List.iter (fun (_, files) ->
             let names = files |> List.map IO.Path.GetFileName |> String.concat " and "
-            printfn $"Warning: {names} both assemble into the same .ram file - one will overwrite the other")
+            let ram = IO.Path.GetFileName (IO.Path.ChangeExtension(List.head files, "ram"))
+            printfn $"Warning: {names} both write {ram} - one will overwrite the other"
+            printfn "")
         sourceFiles
         |> List.iter assembler
         let fileSystemWatcher = new IO.FileSystemWatcher()
