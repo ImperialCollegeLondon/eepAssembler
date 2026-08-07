@@ -1,93 +1,208 @@
 # eepAssembler
 
-A simple assembler for EEP1 CPU as taught at Imperial College 2023
+An assembler for the EEP1 CPU, as taught at Imperial College. It turns EEP1 assembly
+language into a `.ram` file of machine code that can be loaded into Issie.
 
-*This code is written by Tom Clarke with no guarantee as to its correctness: please e-mail me if you find errors*
+*This code is written by Tom Clarke with no guarantee as to its correctness: please e-mail me if you find errors.*
 
-Use issues on this repo for feature requests
+Use issues on this repo for feature requests. The F# source is in `./src/Program.fs`.
 
-The F# source is in `./src/Program.fs`
+## Quick start
 
-## To run the assembler on any system (Windows/Macos/Linux)
+**1. Install the .NET SDK**, if you do not already have it: [dotnet.microsoft.com/download](https://dotnet.microsoft.com/en-us/download).
+Any version from 8 upwards will do - 8, 9, 10 and later all work, so if you already
+have one of these installed there is nothing to do. Get the 64 bit **SDK**, not the
+"runtime only" download.
 
-Before you start:
+**2. Get the code**: download and unzip the latest release, or fork and clone this repo.
 
-* Download and unzip the latest release source code or fork and clone this repo.
-* Install [.NET 64 bit SDK 8](https://dotnet.microsoft.com/en-us/download). 
+**3. Open a terminal in this directory** - the one containing this README file - and run:
 
-To run the assembler on any system (see nicer option via Windows Powershell below):
+```
+dotnet run
+```
 
-* start a command line terminal running in this directory (the one containing the downloaded README file).
-* `dotnet run dir`
-   * replace `dir` by the directory you want to watch
-* `dotnet run` will watch `.`
-    * The downloaded `.` directory has a file `assem.txt` which will be correctly assembled into `assem.ram` with a success message as below.
-    
+That is the whole installation. The first run takes a few seconds to compile.
+
+You will see your computer's own **"choose a folder" dialog** - the normal Windows,
+macOS or Linux one - asking which directory to watch. Pick the directory holding your
+assembly files and every `.s` or `.txt` file in it will be assembled.
+
+On a machine with no such dialog (Linux without `zenity` or `kdialog`, or a terminal
+with no screen to put a window on) a **console chooser** is used instead, which does
+the same job by typing:
+
 ```
 C:\GitHub\eepAssembler>dotnet run
-Watching '.'
-Successful assembly of '.\assem.txt'
-7 lines written to '.\assem.ram'   
+EEP1 Assembler: Version 2.4
+
+==================================================================
+ Choose a directory to watch. Every .s or .txt
+ file in the directory you choose will be assembled now, and
+ re-assembled every time you save it. Subdirectories are not watched.
+==================================================================
+
+Directory: C:\GitHub\eepAssembler
+
+  Files here that would be watched (2):
+      assem.txt
+      testpipeline.txt
+
+  Subdirectories:
+     1  bin
+     2  obj
+     3  src
+
+  ENTER   watch this directory
+  1..3    go into that subdirectory
+  ..      go up to the parent directory
+  <path>  go to that directory
+  q       quit
+>
 ```
 
+It lists the assembly files in the directory you are looking at - those are exactly the
+files that will be watched. Move around with the numbers, `..`, or by typing a path,
+until the directory holding your assembly files is shown, then press ENTER:
 
-### On Windows systems only via Powershell
+```
+Watching 'C:\GitHub\eepAssembler' for .s or .txt files
+Successful assembly of 'C:\GitHub\eepAssembler\assem.txt'
+9 lines written to 'C:\GitHub\eepAssembler\assem.ram'
+```
 
-Double-click `chooser.bat` from this directory to use file selection GUI - the whole directory of file selected will be watched.
+The assembler now stays running. **Edit an assembly file and save it, and it is
+re-assembled immediately** - leave this window open beside your editor. Press Ctrl-C
+in the terminal to stop.
 
-## Features
+The repo contains `assem.txt` as a worked example, which assembles to `assem.ram`.
 
-* The assembler will watch a directory and turn any `.txt` file of EEP1 assembly language into a `.ram` file of machine code suitable for use by Issie.
-* If assembly errors exist they will be printed out
-* Files that change will get re-assembled, so you can edit a file and save it with auto-assembly on save.
-* Lines can be labelled (see `assembler.txt`) and labels used in jump or memory instructions as Imm8 operands.
+### Check it worked
 
-## Troubleshooting your installation
+`assem.ram` should look like this - each line is an address, the machine code word at
+that address, and the source line that produced it:
 
-Uptodate as of Feb 2023.
+```
+0x00 0x0101   // MOV R0, #1
+0x01 0x0302   // MOV R1, #2
+0x02 0x1244   // ADD R1, R1, R2
+...
+```
 
-If this program does not run it will likely be because you have the wrong version of .Net installed. You need 64 bit .Net 8 SDK. Check you have this as follows:
+### Other ways to start it
 
-* Run a commande prompt (Windows key-r -> cmd, or equiv on other systems)
-* `dotnet --info`
+* `dotnet run -- dir` skips the chooser and watches `dir` straight away. `dir` may also
+  be a file, in which case the directory containing it is watched.
+* `dotnet run -- -c` opens the chooser explicitly.
+* `dotnet run -- -ct` opens the console chooser, skipping the folder dialog. Use this
+  if the dialog misbehaves, or over a remote connection with no screen.
+* `dotnet run -- -i` runs the assembler interactively: type one line of assembly at a
+  time and its machine code word is printed. Type `q` to quit.
+* On Windows only, double-click `chooser.bat` to pick a *file* rather than a directory
+  with the Windows dialog: the directory containing it is then watched.
 
-You should get something like:
+## Writing assembly for it
+
+* Source files have extension `.s` or `.txt`. Both work identically, so files written
+  for earlier versions of this assembler still work.
+   * `prog.s` and `prog.txt` in the same directory would both write `prog.ram`, so the
+     assembler warns if it finds such a pair.
+* Only the chosen directory is watched - files in its subdirectories are ignored.
+* `//` starts a comment, which runs to the end of the line.
+* A line may be labelled. The label may be written with or without a colon:
+  `loop: MOV R0, #1`, `loop : MOV R0, #1` and `loop MOV R0, #1` all mean the same thing.
+* Labels can be used as the Imm8 operand of jump and memory instructions.
+
+### Imm8 operands
+
+Imm8 operands may be written anywhere in the range -128 to 255.
+
+* `128` to `255` and `-128` to `-1` are the same 8 bit patterns, so `#255` and `#-1`
+  assemble to the same machine code. A value written as `128` to `255` is read back by
+  the CPU as the corresponding negative number, so the assembler prints a **warning**
+  saying so, and still writes the machine code.
+* An operand outside -128 to 255 - including a label whose address is above 255 - is an
+  **error**. Use an `EXT` instruction to supply the high byte of a larger operand:
+
+```
+EXT 4            // high byte of the address used by the next instruction
+LDR R0, [0x00]   // reads memory location 0x0400
+```
+
+* `EXT` supplies the high byte itself, so no sign warning is given for the instruction
+  it modifies.
+
+### The generated `.ram` file
+
+Each line is annotated with the source line that produced it, as a `//` comment: the
+label if there is one, then the mnemonic and operands. Comments in your assembly source
+are *not* copied across.
+
+```
+0x00 0x0101   // start: MOV R0, #1
+0x01 0x1101   // loop: ADD R0, #1
+0x02 0xc0ff   // JMP loop
+```
+
+### Errors and warnings
+
+Assembly errors are printed with their line number and nothing is written:
+
+```
+Assembly errors in file 'prog.s':
+Line no 4: Immediate operand 300 is outside the allowed 8 bit range -128 .. 255. Use an EXT instruction before this one to supply the high byte of a larger operand
+```
+
+Warnings do not stop assembly - the `.ram` file is written and the warnings follow it.
+
+## Troubleshooting
+
+If `dotnet run` does not work, check what you have installed:
+
+* Open a terminal (Windows key-r -> cmd, or equivalent on other systems)
+* Run `dotnet --info`
+
+You should see an SDK version of 8 or higher, and a 64 bit RID such as `win-x64`:
 
 ```
 C:\Users\tomcl>dotnet --info
 .NET SDK:
- Version:   8.0.101
- Commit:    bb24aafa11
+ Version:   10.0.302
 
 Runtime Environment:
  OS Name:     Windows
- OS Version:  10.0.19044
  OS Platform: Windows
- RID:         win10-x64
- Base Path:   C:\Program Files\dotnet\sdk\8.0.101\
+ RID:         win-x64
+ Base Path:   C:\Program Files\dotnet\sdk\10.0.302\
 ```
-The important bits are: .NET SDK, Version: 8, RID xxxx-x64
 
-What can go wrong: 
+What can go wrong:
 
-* Even though you have installed 64 bit dotnet SDK, you have a previous 32 bit install that was done earlier and dotnet on a command line always finds that one - change your path
-* You have dotnet 8 installed - but not the SDK
-* You have dotnet 6 or 7 installed, but not dotnet 8
-
-### For more insight
-
-* Run a command prompt in the eepassembler directory (then one containing chooser.bat).
-* Run `dotnet run`.
-* Check the messages there, e.g. which version, is there an error.
-
+* **`dotnet` is not a recognised command** - the SDK is not installed, or its directory
+  is not on your PATH. Re-run the installer and open a new terminal afterwards.
+* **You installed the runtime, not the SDK** - the download page offers both. `dotnet --info`
+  lists an SDK version only if you have the SDK.
+* **Your SDK is older than 8** - install a current one from the link above. Installing a
+  new .NET does not remove the old ones.
+* **An old 32 bit install is found first** - if `dotnet --info` shows a RID like `win-x86`,
+  a 32 bit install is earlier on your PATH than the 64 bit one. Fix your PATH.
+* **`I cannot find a directory ...` in the chooser** - type an absolute path, or use the
+  numbered subdirectories to navigate there instead.
 
 ## To develop
 
-On windows:
+On Windows:
+
 * Install *Visual Studio 2022* with F# desktop
-* (if needed) install [.NET SDK](https://dotnet.microsoft.com/en-us/download/visual-studio-sdks) 
+* (if needed) install the [.NET SDK](https://dotnet.microsoft.com/en-us/download/visual-studio-sdks)
 * load `./eepassem.sln`
 
-See [HLP setup](https://intranet.ee.ic.ac.uk/t.clarke/hlp/install-notes.html) for more details of different dev environments.
+The project targets `net8.0` with `RollForward` set to `LatestMajor`. That combination is
+deliberate: the oldest supported target framework means every current SDK can build it,
+and the roll-forward means the built program runs on whatever newer .NET runtime a
+machine happens to have. Raising the target framework would stop anyone with an older
+SDK from building the project at all, so leave it alone unless you also want to require
+everyone to upgrade.
 
-
+See [HLP setup](https://intranet.ee.ic.ac.uk/t.clarke/hlp/install-notes.html) for more
+details of different dev environments.
