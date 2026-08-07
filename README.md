@@ -9,10 +9,21 @@ Use issues on this repo for feature requests. The F# source is in `./src/Program
 
 ## Quick start
 
-**1. Install the .NET SDK**, if you do not already have it: [dotnet.microsoft.com/download](https://dotnet.microsoft.com/en-us/download).
-Any version from 8 upwards will do - 8, 9, 10 and later all work, so if you already
-have one of these installed there is nothing to do. Get the 64 bit **SDK**, not the
-"runtime only" download.
+**1. Install the .NET SDK**, if you do not already have it:
+[dotnet.microsoft.com/download](https://dotnet.microsoft.com/en-us/download). Take the
+**latest** version offered, and make sure it is the **SDK** and not the "runtime only"
+download.
+
+Any SDK from 8 upwards can build the assembler, so if you already have 8, 9, 10 or later
+there is nothing to do. Do note that .NET 8 and .NET 9 both stopped receiving security
+updates on 10 November 2026, so if you are installing anything at all, install the
+current one. Installing a new .NET never removes the versions you already have.
+
+**Pick the download that matches your machine**: `x64` for almost every Windows PC and
+for Intel Macs, `Arm64` for Apple Silicon Macs and for Arm Windows laptops (Snapdragon,
+Copilot+ PCs). On Windows, if you are not sure, take `x64` - it also runs on Arm Windows,
+just more slowly. Avoid the `x86` (32 bit) download: it works, but having both it and an
+`x64` install is the single most common cause of the installation problems below.
 
 **2. Get the code**: download and unzip the latest release, or fork and clone this repo.
 
@@ -162,7 +173,8 @@ If `dotnet run` does not work, check what you have installed:
 * Open a terminal (Windows key-r -> cmd, or equivalent on other systems)
 * Run `dotnet --info`
 
-You should see an SDK version of 8 or higher, and a 64 bit RID such as `win-x64`:
+You should see an SDK version of 8 or higher, and a 64 bit RID - `win-x64`, or `win-arm64`
+on an Arm laptop, or `osx-arm64` / `linux-x64` and so on:
 
 ```
 C:\Users\tomcl>dotnet --info
@@ -182,10 +194,18 @@ What can go wrong:
   is not on your PATH. Re-run the installer and open a new terminal afterwards.
 * **You installed the runtime, not the SDK** - the download page offers both. `dotnet --info`
   lists an SDK version only if you have the SDK.
-* **Your SDK is older than 8** - install a current one from the link above. Installing a
-  new .NET does not remove the old ones.
-* **An old 32 bit install is found first** - if `dotnet --info` shows a RID like `win-x86`,
-  a 32 bit install is earlier on your PATH than the 64 bit one. Fix your PATH.
+* **Your SDK is older than 8** - the build stops with `NETSDK1045: The current .NET SDK does
+  not support targeting .NET 8.0`. Install a current SDK from the link above, then open a
+  new terminal. Installing a new .NET does not remove the old ones.
+* **A 32 bit install is found first** - if `dotnet --info` shows a RID of `win-x86` on a 64
+  bit machine then a 32 bit `dotnet` is earlier on your PATH than the 64 bit one, so the SDK
+  you installed is not the one being used. The build prints a warning saying so. Fix it by
+  putting `C:\Program Files\dotnet` ahead of `C:\Program Files (x86)\dotnet` in your PATH
+  (Windows key, then search for "environment variables") and opening a new terminal.
+  Uninstalling the 32 bit .NET works just as well.
+* **Which .NET am I actually using?** - the assembler prints it on its first line, e.g.
+  `EEP1 Assembler: Version 2.4 (running on .NET 10.0.2, x64)`. If you e-mail about a
+  problem, include that line.
 * **`I cannot find a directory ...` in the chooser** - type an absolute path, or use the
   numbered subdirectories to navigate there instead.
 
@@ -198,11 +218,19 @@ On Windows:
 * load `./eepassem.sln`
 
 The project targets `net8.0` with `RollForward` set to `LatestMajor`. That combination is
-deliberate: the oldest supported target framework means every current SDK can build it,
-and the roll-forward means the built program runs on whatever newer .NET runtime a
-machine happens to have. Raising the target framework would stop anyone with an older
-SDK from building the project at all, so leave it alone unless you also want to require
-everyone to upgrade.
+deliberate, and is what lets students build with whatever .NET they already have.
+`net8.0` is a *floor* - the oldest SDK that can build the project - and not the runtime
+anyone runs on: the roll-forward means the program runs on the newest runtime installed,
+so on a machine with only .NET 11 it runs on .NET 11.
+
+.NET 8 and .NET 9 left support on 10 November 2026, which changes none of this, because
+nothing here runs on .NET 8. It does mean SDKs released after that date warn (NETSDK1138)
+that the target framework is out of support, so `CheckEolTargetFramework` is set to
+`false` to keep that warning off every student's screen.
+
+Raising the floor to `net10.0` would stop anyone whose only SDK is the .NET 8 they
+installed for an earlier year's course from building at all, with an error most students
+cannot interpret. Leave it alone unless you also intend to require everyone to upgrade.
 
 See [HLP setup](https://intranet.ee.ic.ac.uk/t.clarke/hlp/install-notes.html) for more
 details of different dev environments.

@@ -24,6 +24,24 @@ type Phase = | Phase1 | Phase2
 
 let version = "2.4"
 
+/// What this program is actually running on, e.g. '.NET 10.0.2, x64'. It is printed at
+/// startup because it answers most installation questions on sight - which .NET is really
+/// being used, and whether it is the 32 or the 64 bit one - without anyone having to be
+/// talked through 'dotnet --info'.
+let runtimeDescription =
+    let framework = Runtime.InteropServices.RuntimeInformation.FrameworkDescription
+    let architecture = string Runtime.InteropServices.RuntimeInformation.ProcessArchitecture
+    $"{framework}, {architecture.ToLowerInvariant()}"
+
+/// .NET 8 and .NET 9 both stopped receiving security updates on 10 November 2026. The
+/// assembler works perfectly well on either, so this is a note and not an error - but a
+/// student running one has no other way of knowing, so say it once at startup.
+let noteIfRuntimeOutOfSupport() =
+    if Environment.Version.Major <= 9 then
+        printfn $"Note: .NET {Environment.Version.Major} stopped receiving security updates in November 2026. The assembler is"
+        printfn "      happy on it, but do install a current .NET SDK when convenient:"
+        printfn "      https://dotnet.microsoft.com/en-us/download"
+
 /// The operand of an instruction, after parsing but before it is turned into bits.
 type Op =
     /// shift count, 0 .. 15
@@ -1092,7 +1110,8 @@ let runChooser useNativeDialog =
 
 [<EntryPoint>]
 let main argv =
-    printfn $"EEP1 Assembler: Version {version}"
+    printfn $"EEP1 Assembler: Version {version} (running on {runtimeDescription})"
+    noteIfRuntimeOutOfSupport()
     match argv with
     | [|"-i"|] | [|"--repl"|] ->
         printfn "Interactive mode: type one line of assembler per line, 'q' to quit"

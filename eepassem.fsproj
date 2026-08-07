@@ -2,16 +2,40 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
 
-    <!-- net8.0 is the oldest .NET still in support, so every current SDK (8, 9, 10, ...)
-         can build this project. RollForward lets the built program run on whatever
-         runtime is actually installed, so a machine with only a newer .NET runs it
-         without .NET 8 being installed. Between them these two lines mean nobody has
-         to install a particular .NET version to use the assembler. -->
+    <!-- These two lines are what let a student build and run the assembler with whatever
+         .NET they happen to have: 8, 9, 10, 11 or later all work, and nobody has to
+         install a particular version.
+
+         'net8.0' is a floor - the oldest SDK that can build the project - and not the
+         runtime anyone actually uses. RollForward makes the built program run on the
+         newest runtime installed, so on a machine with only .NET 11 it runs on .NET 11
+         and .NET 8 need not be installed at all.
+
+         .NET 8 and .NET 9 both left support on 10 November 2026, so anyone installing
+         now gets .NET 10 (supported to November 2028) or later, and that is what the
+         code runs on. Keeping the floor at net8.0 costs nothing and means a student
+         whose only SDK is the .NET 8 they installed for an earlier year's course can
+         still build, rather than hitting an SDK version error they cannot interpret. -->
     <TargetFramework>net8.0</TargetFramework>
     <RollForward>LatestMajor</RollForward>
 
+    <!-- SDKs released after November 2026 know net8.0 is out of support and warn
+         (NETSDK1138) on every build. Here that warning is about the floor above, which
+         is deliberate, and the program does not run on .NET 8 anyway - so silence it
+         rather than have every student see a warning they should ignore. -->
+    <CheckEolTargetFramework>false</CheckEolTargetFramework>
+
     <WarnOn>3390;$(WarnOn)</WarnOn>
   </PropertyGroup>
+
+  <!-- Windows machines collect .NET installs over the years, and a 32 bit one earlier on
+       the PATH than the 64 bit one is a well known source of confusion: the SDK you
+       installed is not the one that runs. Building works either way, so this is a warning
+       and not an error, but it names the problem where it will be seen. -->
+  <Target Name="WarnIf32BitSdkOn64BitWindows" BeforeTargets="Build"
+          Condition="'$(NETCoreSdkRuntimeIdentifier)' == 'win-x86' AND '$([System.Environment]::Is64BitOperatingSystem)' == 'true'">
+    <Warning Text="You are building with the 32 bit (x86) .NET SDK in '$(NetCoreRoot)' on 64 bit Windows, which usually means a 32 bit dotnet comes before the 64 bit one on your PATH. The assembler still works, but if you see 'SDK not found' or missing runtime errors, install the x64 SDK and put it first on your PATH." />
+  </Target>
 
   <ItemGroup>
     <Compile Include="src/EEExtensions.fs" />
