@@ -204,6 +204,7 @@ let opMap: Map<string,Token> =
         "XSR", SHIFTOP 3
         "LDR", MEMOP 0
         "STR", MEMOP 2
+        "NOOP", JMPOP (0,true)
         "JMP", JMPOP (0,false)
         "EXT", EXTOP
         "JNE", JMPOP (1,true)
