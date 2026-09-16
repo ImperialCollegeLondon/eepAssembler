@@ -228,24 +228,15 @@ What can go wrong:
 
 On Windows:
 
-* Install *Visual Studio 2022* with F# desktop
-* (if needed) install the [.NET SDK](https://dotnet.microsoft.com/en-us/download/visual-studio-sdks)
-* load `./eepassem.sln`
+* Install *Visual Studio 2026* with F# desktop
+* * load `./eepassem.sln`
 
-The project targets `net8.0` with `RollForward` set to `LatestMajor`. That combination is
-deliberate, and is what lets students build with whatever .NET they already have.
-`net8.0` is a *floor* - the oldest SDK that can build the project - and not the runtime
-anyone runs on: the roll-forward means the program runs on the newest runtime installed,
+The project targets `net8.0` with `RollForward` set to `LatestMajor`. That will build with whatever .NET you already have.
+`net8.0` is a *floor* - the roll-forward means the program runs on the newest runtime installed,
 so on a machine with only .NET 11 it runs on .NET 11.
 
 .NET 8 and .NET 9 left support on 10 November 2026, which changes none of this, because
 nothing here runs on .NET 8. It does mean SDKs released after that date warn (NETSDK1138)
 that the target framework is out of support, so `CheckEolTargetFramework` is set to
-`false` to keep that warning off every student's screen.
+`false` to keep that warning off every screen.
 
-Raising the floor to `net10.0` would stop anyone whose only SDK is the .NET 8 they
-installed for an earlier year's course from building at all, with an error most students
-cannot interpret. Leave it alone unless you also intend to require everyone to upgrade.
-
-See [HLP setup](https://intranet.ee.ic.ac.uk/t.clarke/hlp/install-notes.html) for more
-details of different dev environments.
